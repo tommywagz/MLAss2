@@ -55,9 +55,9 @@ def repeatDT(scale):
 
     # histogram of numbers 0 to 5 on x axis 
     # number of times x number of important features was found
-    plt.figure(figsize=(10, 6))
-    plt.hist(totalFound, bins=np.arange(0, 6) - 0.5, rwidth=0.8)
-    plt.xticks(range(6))
+    plt.figure(figsize=(10, 7))
+    plt.hist(totalFound, bins=np.arange(0, 7) - 0.5, rwidth=0.8)
+    plt.xticks(range(7))
     plt.xlabel("Number of Important Features in Top 5")
     plt.ylabel("Frequency")
     plt.title("Distribution of Important Features Found")
@@ -95,9 +95,9 @@ def genLogReg(scale):
     avg = np.mean(totalFound)
     print(f"On average the model identified {avg} important features in the top five for every run")
         
-    plt.figure(figsize=(10, 6))
-    plt.hist(totalFound, bins=np.arange(0, 6) - 0.5, rwidth=0.8)
-    plt.xticks(range(6))
+    plt.figure(figsize=(10, 7))
+    plt.hist(totalFound, bins=np.arange(0, 7) - 0.5, rwidth=0.8)
+    plt.xticks(range(7))
     plt.xlabel("Number of Informative Features in Top 5")
     plt.ylabel("Frequency")
     plt.title("Logistic Regression Informative Feature Count")   
@@ -153,9 +153,9 @@ def findOverlap():
     avg = np.mean(totalOverlaps)
     print(f"On average the models identified {avg} of the same important features in the top five for every run")
 
-    plt.figure(figsize=(10, 6))
-    plt.hist(totalOverlaps, bins=np.arange(0, 6) - 0.5, rwidth=0.8)
-    plt.xticks(range(6))
+    plt.figure(figsize=(10, 7))
+    plt.hist(totalOverlaps, bins=np.arange(0, 7) - 0.5, rwidth=0.8)
+    plt.xticks(range(7))
     plt.xlabel("Number of Informative Features in both Top 5s")
     plt.ylabel("Frequency")
     plt.title("Logistic Regression and Decision Tree Informative Feature Count")   
@@ -166,46 +166,56 @@ def findOverlap():
 ############################### Question 2 ####################################3   
         
 # part b
-def backwardSelectionLR(X, y):
+def backwardSelectionLR(seed):
+    X, y = ds.make_classification(n_samples=1000, n_features=20,
+                                n_informative=5, n_redundant=15,
+                                shuffle=False, random_state=seed)
+
+    scaler = StandardScaler()
+    newX = scaler.fit_transform(X)
+
+    shuffledIdxs = np.random.default_rng(seed=0).permutation(newX.shape[0])
+    shuffledX = newX[shuffledIdxs]
+    shuffledy = y[shuffledIdxs]
     remainingFeatures = list(range(X.shape[1]))
-    informativeFeatures = X[:, list(range(5))]
     
     # find the least helpful feature and remove it from feature matrix
     while len(remainingFeatures) > 5:    
-        logRegClassi = LogisticRegression(penalty=None, random_state=0)
-        logRegClassi.fit(X, y)
+        logRegClassi = LogisticRegression(penalty=None, random_state=4)
+        logRegClassi.fit(shuffledX, shuffledy)
         featureImportances = np.argsort(np.abs(logRegClassi.coef_[0]))
         
-        worstFeatIdx = np.argmin(featureImportances)
+        worstFeatIdx = remainingFeatures[featureImportances[0]]
+        worstFeatIdxRemaining = remainingFeatures.index(worstFeatIdx)
         
         # remove worst feature from remaining and X
-        remainingFeatures.pop(worstFeatIdx)
-        X = np.delete(X, worstFeatIdx, axis=1)
+        remainingFeatures.pop(worstFeatIdxRemaining)
+        shuffledX = np.delete(shuffledX, worstFeatIdxRemaining, axis=1)
         
     score = 0
     for f in remainingFeatures:
-        if f in range(0, 6):
+        if f in range(6):
             score += 1
 
     return remainingFeatures, score
 
         
 # part c
-def repeatBSLR(X, y):
+def repeatBSLR():
     scores = []
     remainingFeatures = []
     
-    for _ in range(1, 1000+1):
-        currRemaining, currScore = backwardSelectionLR(X, y)
+    for i in range(1, 1000+1):
+        currRemaining, currScore = backwardSelectionLR(i)
         scores.append(currScore)
         remainingFeatures.append(currRemaining)
-        
+
     avg = np.mean(scores) 
     print(f"There were an average of {avg} important features found with backward elimination")
 
-    plt.figure(figsize=(10, 6))
-    plt.hist(scores, bins=np.arange(0, 6) - 0.5, rwidth=0.8)
-    plt.xticks(range(0, 6))
+    plt.figure(figsize=(10, 7))
+    plt.hist(scores, bins=np.arange(0, 7) - 0.5, rwidth=0.8)
+    plt.xticks(range(0, 7))
     plt.xlabel("Number of Important Featuress Present Post-Elimination")
     plt.ylabel("Frequency")
     plt.title("Number of Important Features Recovered per 1000 Runs")
@@ -244,7 +254,7 @@ def subsetSelection():
             
         currCount = 0
         for f in subset:
-            if f in range(3):
+            if f in range(4):
                 currCount += 1
         recoveries.append(currCount)
     
@@ -252,9 +262,9 @@ def subsetSelection():
     print(f"The average number of recoveries is {avg}")
     print(f"The best score for subset Selection was {bestScore}")
     
-    plt.figure(figsize=(10, 6))
-    plt.hist(x = recoveries, bins=np.arange(0, 6) - 0.5, rwidth=0.8)
-    plt.xticks(range(0, 6))
+    plt.figure(figsize=(10, 5))
+    plt.hist(x = recoveries, bins=np.arange(0, 5) - 0.5, rwidth=0.8)
+    plt.xticks(range(0, 5))
     plt.xlabel("Number of Recovered Informative Features")
     plt.ylabel("Frequency")
     plt.title("Recovered Important Features by Each Subset")
@@ -264,21 +274,29 @@ def subsetSelection():
 
 
 # part f
-def permFeatImport(X, y):
+def permFeatImport():
     scores = []
-    
-    for _ in range(1 + 1000+1):
-        trainX, testX, trainY, testY = train_test_split(X, y, test_size=0.2, random_state=4)
+    for i in range(1 + 1000+1):
+        X, y = ds.make_classification(n_samples=1000, n_features=20,
+                                    n_informative=5, n_redundant=15,
+                                    shuffle=False, random_state=i)
 
-        logRegClassi = LogisticRegression(penalty=None, random_state=4, solver='lbfgs')
-        logRegClassi.fit(trainX, trainY)
+        scaler = StandardScaler()
+        newX = scaler.fit_transform(X)
+
+        shuffledIdxs = np.random.default_rng(seed=0).permutation(newX.shape[0])
+        shuffledX = newX[shuffledIdxs]
+        shuffledy = y[shuffledIdxs]
         
-        result = pi(logRegClassi, testX, testY, n_repeats=10, random_state=4)
+        logRegClassi = LogisticRegression(penalty=None, random_state=4, solver='lbfgs')
+        logRegClassi.fit(shuffledX, shuffledy)
+        
+        result = pi(logRegClassi, shuffledX, shuffledy, n_repeats=10, random_state=4)
         importances = result.importances_mean
         
         top5Idx = np.argsort(importances)[-5:]
         
-        informativeIndices = list(range(5))
+        informativeIndices = list(range(6))
         score = sum(1 for idx in top5Idx if idx in informativeIndices)
 
         scores.append(score)
@@ -286,9 +304,9 @@ def permFeatImport(X, y):
     avg = np.mean(scores)
     print(f"There was an average of {avg} important features with Permutation Importance")
     
-    plt.figure(figsize=(10, 6))
-    plt.hist(x=scores, bins=np.arange(0, 6) - 0.5, rwidth=0.8)
-    plt.xticks(range(0, 6))
+    plt.figure(figsize=(10, 7))
+    plt.hist(x=scores, bins=np.arange(0, 7) - 0.5, rwidth=0.8)
+    plt.xticks(range(0, 7))
     plt.xlabel("Number of Important Features Found")
     plt.ylabel("Frequency")
     plt.title("Number of Important Features Recovered per 1000 Runs with Permutation Importance")
@@ -325,22 +343,11 @@ if __name__ == "__main__":
     genLogReg(False)
     findOverlap()
     
-    X, y = ds.make_classification(n_samples=1000, n_features=20,
-                                n_informative=5, n_redundant=15,
-                                shuffle=False, random_state=0)
-
-    scaler = StandardScaler()
-    newX = scaler.fit_transform(X)
-
-    shuffledIdxs = np.random.default_rng(seed=0).permutation(newX.shape[0])
-    shuffledX = newX[shuffledIdxs]
-    shuffledy = y[shuffledIdxs]
-    
-    remaining, score = backwardSelectionLR(shuffledX, shuffledy)
+    remaining, score = backwardSelectionLR(0)
     print(f"There were {score} remaing features that were important:")
     for f in remaining:
         print(f)
         
-    repeatBSLR(shuffledX, shuffledy)
+    repeatBSLR()
     subsetSelection()
-    permFeatImport(shuffledX, shuffledy)
+    permFeatImport()
