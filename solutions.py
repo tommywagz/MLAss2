@@ -194,7 +194,7 @@ def backwardSelectionLR(seed):
         
     score = 0
     for f in remainingFeatures:
-        if f in range(6):
+        if f in range(5):
             score += 1
 
     return remainingFeatures, score
@@ -240,23 +240,24 @@ def subsetSelection():
     
     recoveries = []
     scores=[]
-    for subset in combinations(range(shuffledX.shape[1]), 5):
-        subsetX = shuffledX[:, list(subset)]
-        logRegClassi = LogisticRegression(penalty=None, random_state=4)
-        logRegClassi.fit(shuffledX, shuffledy)
-        featureImportances = np.abs(logRegClassi.coef_[0])
-        subsetScore = np.mean(featureImportances)
-        scores.append(subsetScore)
-        
-        if subsetScore > bestScore:
-            bestScore = subsetScore
-            bestSubset = subsetX
+    for i in range(1, 8):
+        for subset in combinations(range(shuffledX.shape[1]), i):
+            subsetX = shuffledX[:, list(subset)]
+            logRegClassi = LogisticRegression(penalty=None, random_state=4)
+            logRegClassi.fit(shuffledX, shuffledy)
+            featureImportances = np.abs(logRegClassi.coef_[0])
+            subsetScore = np.mean(featureImportances)
+            scores.append(subsetScore)
             
-        currCount = 0
-        for f in subset:
-            if f in range(4):
-                currCount += 1
-        recoveries.append(currCount)
+            if subsetScore > bestScore:
+                bestScore = subsetScore
+                bestSubset = subsetX
+                
+            currCount = 0
+            for f in subset:
+                if f in range(3):
+                    currCount += 1
+            recoveries.append(currCount)
     
     avg = np.mean(recoveries)
     print(f"The average number of recoveries is {avg}")
@@ -297,7 +298,11 @@ def permFeatImport():
         top5Idx = np.argsort(importances)[-5:]
         
         informativeIndices = list(range(6))
-        score = sum(1 for idx in top5Idx if idx in informativeIndices)
+
+        score = 0
+        for f in top5Idx:
+            if f in informativeIndices:
+                score += 1
 
         scores.append(score)
         
@@ -312,42 +317,43 @@ def permFeatImport():
     plt.title("Number of Important Features Recovered per 1000 Runs with Permutation Importance")
     plt.show()
 
+#######################################################################
 
 if __name__ == "__main__":
-    featImports, X = genTreeClassifier(0, True)
+    # featImports, X = genTreeClassifier(0, True)
     
-    top5Indices = np.argsort(featImports)[-5:]
-    informativeIndices = np.arange(5)
+    # top5Indices = np.argsort(featImports)[-5:]
+    # informativeIndices = np.arange(5)
 
-    found = 0
-    for idx in top5Indices:
-        if idx in informativeIndices:
-            found += 1
+    # found = 0
+    # for idx in top5Indices:
+    #     if idx in informativeIndices:
+    #         found += 1
             
-    print(f"Number of informative features in top 5: {found}")
+    # print(f"Number of informative features in top 5: {found}")
             
-    sortedIndices = np.argsort(featImports)[::-1]
-    sortedImportances = featImports[sortedIndices]
+    # sortedIndices = np.argsort(featImports)[::-1]
+    # sortedImportances = featImports[sortedIndices]
 
-    plt.figure(figsize=(10, 6))
-    plt.bar(range(X.shape[1]), sortedImportances)
-    plt.xticks(range(X.shape[1]), sortedIndices)
-    plt.xlabel("Features by Importance")
-    plt.ylabel("Feature Importance Score")
-    plt.title("Feature Importance from Decision Tree")
-    plt.show()
+    # plt.figure(figsize=(10, 6))
+    # plt.bar(range(X.shape[1]), sortedImportances)
+    # plt.xticks(range(X.shape[1]), sortedIndices)
+    # plt.xlabel("Features by Importance")
+    # plt.ylabel("Feature Importance Score")
+    # plt.title("Feature Importance from Decision Tree")
+    # plt.show()
     
-    repeatDT(True)
-    repeatDT(False)
-    genLogReg(True)
-    genLogReg(False)
-    findOverlap()
+    # repeatDT(True)
+    # repeatDT(False)
+    # genLogReg(True)
+    # genLogReg(False)
+    # findOverlap()
     
-    remaining, score = backwardSelectionLR(0)
-    print(f"There were {score} remaing features that were important:")
-    for f in remaining:
-        print(f)
+    # remaining, score = backwardSelectionLR(0)
+    # print(f"There were {score} remaing features that were important:")
+    # for f in remaining:
+    #     print(f)
         
-    repeatBSLR()
-    subsetSelection()
+    # repeatBSLR()
+    # subsetSelection()
     permFeatImport()
