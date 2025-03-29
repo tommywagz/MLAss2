@@ -6,15 +6,22 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import numpy as np
+from itertools import combinations
+from sklearn.inspection import permutation_importance as pi
+from sklearn.model_selection import train_test_split
+
+############################ Question 1 ###############################
 
 # part a
-def genTreeClassifier(seed):
+def genTreeClassifier(seed, scale):
     X, y = ds.make_classification(n_samples=1000, n_features=20,
                                     n_informative=5, n_redundant=15,
                                     shuffle=False, random_state=seed)
-
-    scaler = StandardScaler()
-    newX = scaler.fit_transform(X)
+    if scale:
+        scaler = StandardScaler()
+        newX = scaler.fit_transform(X)
+    else:
+        newX = X
 
     shuffledIdxs = np.random.default_rng(seed=0).permutation(newX.shape[0])
     shuffledX = newX[shuffledIdxs]
@@ -26,13 +33,12 @@ def genTreeClassifier(seed):
     featImports = dataClassifier.feature_importances_
     
     return featImports, shuffledX
-    
 
-# part c
-def repeatDT():
+# part c/e
+def repeatDT(scale):
     totalFound = []
     for i in range(1, 1000+1):
-        featureImportances, X = genTreeClassifier(i)
+        featureImportances, X = genTreeClassifier(i, scale)
         top5Indices = np.argsort(featureImportances)[-5:]
         informativeIndices = np.arange(5)
         
@@ -56,7 +62,6 @@ def repeatDT():
     plt.ylabel("Frequency")
     plt.title("Distribution of Important Features Found")
     plt.show()
-
 
 # part d
 def genLogReg(scale):
@@ -97,7 +102,6 @@ def genLogReg(scale):
     plt.ylabel("Frequency")
     plt.title("Logistic Regression Informative Feature Count")   
     plt.show() 
-
 
 # part f
 def findOverlap():
@@ -157,32 +161,186 @@ def findOverlap():
     plt.title("Logistic Regression and Decision Tree Informative Feature Count")   
     plt.show() 
         
+        
+        
+############################### Question 2 ####################################3   
+        
+# part b
+def backwardSelectionLR(X, y):
+    remainingFeatures = list(range(X.shape[1]))
+    informativeFeatures = X[:, list(range(5))]
+    
+    # find the least helpful feature and remove it from feature matrix
+    while len(remainingFeatures) > 5:    
+        logRegClassi = LogisticRegression(penalty=None, random_state=0)
+        logRegClassi.fit(X, y)
+        featureImportances = np.argsort(np.abs(logRegClassi.coef_[0]))
+        
+        worstFeatIdx = np.argmin(featureImportances)
+        
+        # remove worst feature from remaining and X
+        remainingFeatures.pop(worstFeatIdx)
+        X = np.delete(X, worstFeatIdx, axis=1)
+        
+    score = 0
+    for f in remainingFeatures:
+        if f in range(0, 6):
+            score += 1
+
+    return remainingFeatures, score
+
+        
+# part c
+def repeatBSLR(X, y):
+    scores = []
+    remainingFeatures = []
+    
+    for _ in range(1, 1000+1):
+        currRemaining, currScore = backwardSelectionLR(X, y)
+        scores.append(currScore)
+        remainingFeatures.append(currRemaining)
+        
+    avg = np.mean(scores) 
+    print(f"There were an average of {avg} important features found with backward elimination")
+
+    plt.figure(figsize=(10, 6))
+    plt.hist(scores, bins=np.arange(0, 6) - 0.5, rwidth=0.8)
+    plt.xticks(range(0, 6))
+    plt.xlabel("Number of Important Featuress Present Post-Elimination")
+    plt.ylabel("Frequency")
+    plt.title("Number of Important Features Recovered per 1000 Runs")
+    plt.show()
+
+
+# part e
+def subsetSelection():
+    X, y = ds.make_classification(n_samples=1000, n_features=7,
+                                n_informative=3, n_redundant=4,
+                                shuffle=False, random_state=0)
+
+    scaler = StandardScaler()
+    newX = scaler.fit_transform(X)
+
+    shuffledIdxs = np.random.default_rng(seed=0).permutation(newX.shape[0])
+    shuffledX = newX[shuffledIdxs]
+    shuffledy = y[shuffledIdxs]
+    
+    bestScore = -np.inf 
+    bestSubset = None
+    
+    recoveries = []
+    scores=[]
+    for subset in combinations(range(shuffledX.shape[1]), 5):
+        subsetX = shuffledX[:, list(subset)]
+        logRegClassi = LogisticRegression(penalty=None, random_state=4)
+        logRegClassi.fit(shuffledX, shuffledy)
+        featureImportances = np.abs(logRegClassi.coef_[0])
+        subsetScore = np.mean(featureImportances)
+        scores.append(subsetScore)
+        
+        if subsetScore > bestScore:
+            bestScore = subsetScore
+            bestSubset = subsetX
+            
+        currCount = 0
+        for f in subset:
+            if f in range(3):
+                currCount += 1
+        recoveries.append(currCount)
+    
+    avg = np.mean(recoveries)
+    print(f"The average number of recoveries is {avg}")
+    print(f"The best score for subset Selection was {bestScore}")
+    
+    plt.figure(figsize=(10, 6))
+    plt.hist(x = recoveries, bins=np.arange(0, 6) - 0.5, rwidth=0.8)
+    plt.xticks(range(0, 6))
+    plt.xlabel("Number of Recovered Informative Features")
+    plt.ylabel("Frequency")
+    plt.title("Recovered Important Features by Each Subset")
+    plt.show()
+
+    return list(bestSubset), bestScore
+
+
+# part f
+def permFeatImport(X, y):
+    scores = []
+    
+    for _ in range(1 + 1000+1):
+        trainX, testX, trainY, testY = train_test_split(X, y, test_size=0.2, random_state=4)
+
+        logRegClassi = LogisticRegression(penalty=None, random_state=4, solver='lbfgs')
+        logRegClassi.fit(trainX, trainY)
+        
+        result = pi(logRegClassi, testX, testY, n_repeats=10, random_state=4)
+        importances = result.importances_mean
+        
+        top5Idx = np.argsort(importances)[-5:]
+        
+        informativeIndices = list(range(5))
+        score = sum(1 for idx in top5Idx if idx in informativeIndices)
+
+        scores.append(score)
+        
+    avg = np.mean(scores)
+    print(f"There was an average of {avg} important features with Permutation Importance")
+    
+    plt.figure(figsize=(10, 6))
+    plt.hist(x=scores, bins=np.arange(0, 6) - 0.5, rwidth=0.8)
+    plt.xticks(range(0, 6))
+    plt.xlabel("Number of Important Features Found")
+    plt.ylabel("Frequency")
+    plt.title("Number of Important Features Recovered per 1000 Runs with Permutation Importance")
+    plt.show()
+
 
 if __name__ == "__main__":
-    # featImports, X = genTreeClassifier(0)
+    featImports, X = genTreeClassifier(0, True)
     
-    # top5Indices = np.argsort(featImports)[-5:]
-    # informativeIndices = np.arange(5)
+    top5Indices = np.argsort(featImports)[-5:]
+    informativeIndices = np.arange(5)
 
-    # found = 0
-    # for idx in top5Indices:
-    #     if idx in informativeIndices:
-    #         found += 1
+    found = 0
+    for idx in top5Indices:
+        if idx in informativeIndices:
+            found += 1
             
-    # print(f"Number of informative features in top 5: {found}")
+    print(f"Number of informative features in top 5: {found}")
             
-    # sortedIndices = np.argsort(featImports)[::-1]
-    # sortedImportances = featImports[sortedIndices]
+    sortedIndices = np.argsort(featImports)[::-1]
+    sortedImportances = featImports[sortedIndices]
 
-    # plt.figure(figsize=(10, 6))
-    # plt.bar(range(X.shape[1]), sortedImportances)
-    # plt.xticks(range(X.shape[1]), sortedIndices)
-    # plt.xlabel("Features by Importance")
-    # plt.ylabel("Feature Importance Score")
-    # plt.title("Feature Importance from Decision Tree")
-    # plt.show()
+    plt.figure(figsize=(10, 6))
+    plt.bar(range(X.shape[1]), sortedImportances)
+    plt.xticks(range(X.shape[1]), sortedIndices)
+    plt.xlabel("Features by Importance")
+    plt.ylabel("Feature Importance Score")
+    plt.title("Feature Importance from Decision Tree")
+    plt.show()
     
-    # repeatDT()
+    repeatDT(True)
+    repeatDT(False)
     genLogReg(True)
     genLogReg(False)
     findOverlap()
+    
+    X, y = ds.make_classification(n_samples=1000, n_features=20,
+                                n_informative=5, n_redundant=15,
+                                shuffle=False, random_state=0)
+
+    scaler = StandardScaler()
+    newX = scaler.fit_transform(X)
+
+    shuffledIdxs = np.random.default_rng(seed=0).permutation(newX.shape[0])
+    shuffledX = newX[shuffledIdxs]
+    shuffledy = y[shuffledIdxs]
+    
+    remaining, score = backwardSelectionLR(shuffledX, shuffledy)
+    print(f"There were {score} remaing features that were important:")
+    for f in remaining:
+        print(f)
+        
+    repeatBSLR(shuffledX, shuffledy)
+    subsetSelection()
+    permFeatImport(shuffledX, shuffledy)
